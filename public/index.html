@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      @font-face {
+        font-family: "MetroFont";
+        src: url("fonts/dot.ttf") format("truetype");
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      body {
+        font-family: "MetroFont", sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: black;
+        color: orange;
+      }
+      #departures-container {
+        margin: auto;
+        width: 90%;
+      }
+      .departure,
+      .upcoming-item {
+        font-size: 8vw;
+        display: flex;
+        flex-direction: row;
+      }
+      .line {
+        margin-right: 4vw;
+      }
+      .time {
+        margin-left: auto;
+      }
+      .truncate {
+        width: 50%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="departures-container">
+      <div id="next-departure" class="departure">
+        <span class="line"></span>
+        <span class="destination truncate"></span>
+        <span class="time"></span>
+      </div>
+      <div id="upcoming-departures"></div>
+    </div>
+    <script>
+      async function fetchDepartures() {
+        const siteId = "9144";
+        try {
+          const response = await fetch(
+            `https://transport.integration.sl.se/v1/sites/${siteId}/departures`
+          );
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          const data = await response.json();
+
+          if (data.departures && data.departures.length > 0) {
+            const departures = data.departures
+              .filter(
+                (item) =>
+                  item.stop_area?.id === 1911 && item.direction_code === 1
+              )
+              .sort((a, b) => new Date(a.expected) - new Date(b.expected));
+
+            if (departures.length > 0) {
+              updateNextDeparture(departures[0]);
+              updateUpcomingDepartures(departures.slice(1));
+            } else {
+              displayNoDeparturesMessage();
+            }
+          } else {
+            displayNoDeparturesMessage();
+          }
+        } catch (error) {
+          console.error("Error fetching departures:", error);
+          displayErrorMessage();
+        }
+      }
+      function updateNextDeparture(departure) {
+        const nextDeparture = document.getElementById("next-departure");
+        nextDeparture.querySelector(".line").textContent =
+          departure.line.designation;
+        nextDeparture.querySelector(".destination").textContent =
+          departure.destination;
+        nextDeparture.querySelector(".time").textContent = departure.display;
+      }
+      function updateUpcomingDepartures(departures) {
+        const upcomingContainer = document.getElementById(
+          "upcoming-departures"
+        );
+        upcomingContainer.innerHTML = "";
+
+        departures.forEach((departure) => {
+          const item = document.createElement("div");
+          item.className = "upcoming-item";
+          item.innerHTML = `
+      <span class="line">${departure.line.designation}</span>
+      <span class="destination truncate">${departure.destination}</span>
+      <span class="time">${departure.display}</span>
+    `;
+          upcomingContainer.appendChild(item);
+        });
+      }
+
+      function displayNoDeparturesMessage() {
+        const nextDeparture = document.getElementById("next-departure");
+        nextDeparture.textContent = "No departures available at the moment.";
+      }
+      function displayErrorMessage() {
+        const nextDeparture = document.getElementById("next-departure");
+        nextDeparture.textContent = "Failed to load departure information.";
+      }
+      // Fetch departures on page load
+      fetchDepartures();
+
+      // Refresh every minute to get the latest data
+      setInterval(fetchDepartures, 60000);
+    </script>
+  </body>
+</html>
